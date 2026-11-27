@@ -312,6 +312,7 @@ app.get('/', (req, res) => {
       <body style="font-family: sans-serif; text-align: center; padding: 40px; background: #111; color: white;">
         <h1>⛏️ MyBot is Online!</h1>
         <p>Server: Ancodes.aternos.me</p>
+        <p style="color: #a7f3d0; font-size: 16px; margin-top: 5px;">Play on Minecraft 26.1.2 - Java Edition</p>
         <p>Bot Name: MyBot</p>
         <h2>Stats</h2>
         <p>Ores mined: ${oresMined}</p>
