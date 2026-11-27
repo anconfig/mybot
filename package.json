@@ -1,0 +1,8 @@
+{
+  "name": "mybot",
+  "main": "bot.js",
+  "dependencies": {
+    "mineflayer": "latest",
+    "express": "latest"
+  }
+}
