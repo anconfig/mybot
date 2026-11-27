@@ -2,13 +2,9 @@ const mineflayer = require('mineflayer')
 const fs = require('fs')
 const express = require('express')
 
-const bot = mineflayer.createBot({
-  host: 'Ancodes.aternos.me',
-  port: 25565,
-  username: 'MyBot',
-  version: '26.1',
-  auth: 'offline'
-})
+const BOT_PASSWORD = 'MyBot12345'
+let bot = null
+let reconnectTimer = null
 
 // ============ RL BRAIN ============
 let Q = {}
@@ -74,7 +70,6 @@ function getReward(name) {
   return 0
 }
 
-// ===== REAL VISION: Only see ore if it's EXPOSED to air =====
 function isExposed(block) {
   const dirs = [
     [1,0,0], [-1,0,0], [0,1,0], [0,-1,0], [0,0,1], [0,0,-1]
@@ -111,7 +106,6 @@ function findVisibleOre() {
   return closest
 }
 
-// Hold until block ACTUALLY breaks - retries 3 times
 async function digBlockFully(block) {
   for (let attempt = 1; attempt <= 3; attempt++) {
     const stillThere = bot.blockAt(block.position)
@@ -255,51 +249,91 @@ function stopMining() {
   console.log('MINING STOPPED')
 }
 
-// ============ BOT EVENTS ============
-bot.on('spawn', () => {
-  console.log('Bot joined!')
-  bot.chat('RL Miner ready! Say "mine" to start!')
-})
+function createBot() {
+  console.log('Trying to join Ancodes.aternos.me...')
+  bot = mineflayer.createBot({
+    host: 'Ancodes.aternos.me',
+    port: 25565,
+    username: 'MyBot',
+    version: '26.1',
+    auth: 'offline',
+    checkTimeoutInterval: 60000
+  })
 
-bot.on('chat', (username, message) => {
-  if (username === bot.username) return
-  const msg = message.toLowerCase().trim()
-  if (msg === 'mine') startMining()
-  if (msg === 'stop') stopMining()
-  if (msg === 'stats') {
-    bot.chat(`Stats: ${blocksMined} blocks, ${oresMined} ores, Reward: ${totalReward}, Brain: ${Object.keys(Q).length} memories`)
-  }
-  if (msg === 'forget') {
-    Q = {}
-    totalReward = 0
-    oresMined = 0
-    blocksMined = 0
-    fs.writeFileSync('brain.json', JSON.stringify(Q))
-    bot.chat('Brain wiped! Starting fresh!')
-  }
-  if (msg === 'bye' || msg === 'disconnect' || msg === 'leave') {
-    bot.chat('Bye bye! Disconnecting...')
-    setTimeout(() => bot.quit(), 1000)
-  }
-  if (msg === 'stop script' || msg === 'stop bot') {
-    bot.chat('Stopping script... Bye!')
+  bot.on('spawn', () => {
+    console.log('Bot joined!')
     setTimeout(() => {
-      bot.quit()
-      process.exit()
-    }, 1000)
-  }
-})
+      bot.chat('/register ' + BOT_PASSWORD + ' ' + BOT_PASSWORD)
+      setTimeout(() => {
+        bot.chat('/login ' + BOT_PASSWORD)
+      }, 1500)
+    }, 2000)
+  })
 
-bot.on('kicked', (reason) => {
-  console.log('KICKED: ' + reason)
-})
-bot.on('error', (err) => {
-  console.log('Error: ' + err)
-})
-bot.on('end', () => {
-  console.log('Bot disconnected')
-  if (miningLoop) clearInterval(miningLoop)
-})
+  bot.on('message', (jsonMsg) => {
+    const text = jsonMsg.toString().toLowerCase()
+    if (text.includes('register')) {
+      bot.chat('/register ' + BOT_PASSWORD + ' ' + BOT_PASSWORD)
+      console.log('AuthMe asked to register - trying...')
+    }
+    if (text.includes('login') || text.includes('log in')) {
+      bot.chat('/login ' + BOT_PASSWORD)
+      console.log('AuthMe asked to login - trying...')
+    }
+    if (text.includes('successfully') && text.includes('logged')) {
+      console.log('Bot logged in!')
+      bot.chat('RL Miner ready! Say "mine" to start!')
+    }
+  })
+
+  bot.on('chat', (username, message) => {
+    if (username === bot.username) return
+    const msg = message.toLowerCase().trim()
+    if (msg === 'mine') startMining()
+    if (msg === 'stop') stopMining()
+    if (msg === 'stats') {
+      bot.chat(`Stats: ${blocksMined} blocks, ${oresMined} ores, Reward: ${totalReward}, Brain: ${Object.keys(Q).length} memories`)
+    }
+    if (msg === 'forget') {
+      Q = {}
+      totalReward = 0
+      oresMined = 0
+      blocksMined = 0
+      fs.writeFileSync('brain.json', JSON.stringify(Q))
+      bot.chat('Brain wiped! Starting fresh!')
+    }
+    if (msg === 'bye' || msg === 'disconnect' || msg === 'leave') {
+      bot.chat('Bye bye! Disconnecting...')
+      setTimeout(() => bot.quit(), 1000)
+    }
+    if (msg === 'stop script' || msg === 'stop bot') {
+      bot.chat('Stopping script... Bye!')
+      setTimeout(() => {
+        bot.quit()
+        process.exit()
+      }, 1000)
+    }
+  })
+
+  bot.on('kicked', (reason) => {
+    console.log('KICKED: ' + reason)
+  })
+  bot.on('error', (err) => {
+    console.log('Error: ' + err)
+  })
+  bot.on('end', () => {
+    console.log('Bot disconnected - will try again in 5 seconds...')
+    if (miningLoop) clearInterval(miningLoop)
+    isMining = false
+    isDigging = false
+    if (reconnectTimer) clearTimeout(reconnectTimer)
+    reconnectTimer = setTimeout(() => {
+      createBot()
+    }, 5000)
+  })
+}
+
+createBot()
 
 // ============ WEBSITE FOR RENDER ============
 const app = express()
