@@ -329,3 +329,6 @@ app.get('/', (req, res) => {
 })
 
 app.listen(PORT, () => console.log('Website running on ' + PORT))
+// Keep Render happy - fake web server
+const http = require('http');
+http.createServer((req, res) => res.end('Bot is alive!')).listen(process.env.PORT || 3000);
