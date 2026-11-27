@@ -253,7 +253,7 @@ function createBot() {
   console.log('Trying to join Ancodes.aternos.me...')
   bot = mineflayer.createBot({
     host: 'Ancodes.aternos.me',
-    port: 25565,
+    port: 32941,
     username: 'MyBot',
     version: '26.1',
     auth: 'offline',
